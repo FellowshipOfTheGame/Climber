@@ -102,7 +102,7 @@ Shader "Custom/Crystal" {
 				float4 n_z = lerp(float4(n000, n100, n010, n110), float4(n001, n101, n011, n111), fade_xyz.z);
 				float2 n_yz = lerp(n_z.xy, n_z.zw, fade_xyz.y);
 				float n_xyz = lerp(n_yz.x, n_yz.y, fade_xyz.x);
-				return 2.2 * n_xyz;
+				return 1.1 * n_xyz + 0.5;
 			}
 
 			struct vIn
@@ -176,7 +176,36 @@ Shader "Custom/Crystal" {
 				float minimum = _Minimum;
 				float falloff = _Falloff;
 				float zoom = _Zoom;
-				float perlin = (cnoise(zoom * input.worldpos.xyz) + 1) / 2;
+
+				const float offset = 0.05;
+				float perlin = 0.0;
+/*
+				for (int X = -1; X <= 1; X++)
+				{
+					for (int Y = -1; Y <= 1; Y++)
+					{
+						for (int Z = -1; Z <= 1; Z++)
+						{
+							int where = abs(X) + abs(Y) + abs(Z);
+							int amount;
+							if (where == 3)
+								amount = -1;
+							else if (where == 2)
+								amount = -2;
+							else if (where == 1)
+								amount = -4;
+							else
+								amount = 8 * 1 + 12 * 2 + 6 * 4 + 1;
+							float3 p = input.worldpos.xyz * zoom;
+							p.x = p.x + X * offset;
+							p.y = p.y + Y * offset;
+							p.z = p.z + Z * offset;
+							perlin += cnoise(p) * amount;
+						}
+					}
+				}
+*/
+				perlin = cnoise(input.worldpos.xyz * zoom);
 
 				float fall = 1 + abs(perlin - minimum) * (falloff);
 
@@ -275,7 +304,7 @@ Shader "Custom/Crystal" {
 				float4 n_z = lerp(float4(n000, n100, n010, n110), float4(n001, n101, n011, n111), fade_xyz.z);
 				float2 n_yz = lerp(n_z.xy, n_z.zw, fade_xyz.y);
 				float n_xyz = lerp(n_yz.x, n_yz.y, fade_xyz.x);
-				return 2.2 * n_xyz;
+				return 1.1 * n_xyz + 0.5;
 			}
 
 			struct vIn
@@ -349,7 +378,36 @@ Shader "Custom/Crystal" {
 				float minimum = _Minimum;
 				float falloff = _Falloff;
 				float zoom = _Zoom;
-				float perlin = (cnoise(zoom * input.worldpos.xyz) + 1) / 2;
+
+				const float offset = 0.1;
+				float perlin = 0.0;
+/*
+				for (int X = -1; X <= 1; X++)
+				{
+					for (int Y = -1; Y <= 1; Y++)
+					{
+						for (int Z = -1; Z <= 1; Z++)
+						{
+							int where = abs(X) + abs(Y) + abs(Z);
+							int amount;
+							if (where == 3)
+								amount = -1;
+							else if (where == 2)
+								amount = -2;
+							else if (where == 1)
+								amount = -4;
+							else
+								amount = 8 * 1 + 12 * 2 + 6 * 4 + 1;
+							float3 p = input.worldpos.xyz * zoom;
+							p.x = p.x + X * offset;
+							p.y = p.y + Y * offset;
+							p.z = p.z + Z * offset;
+							perlin += cnoise(p) * amount;
+						}
+					}
+				}*/
+
+				perlin = cnoise(input.worldpos.xyz * zoom);
 
 				float fall = 1 + abs(perlin - minimum) * (falloff);
 

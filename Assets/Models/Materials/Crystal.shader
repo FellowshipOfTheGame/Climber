@@ -1,427 +1,185 @@
-﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
-// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
-
-// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+﻿// Upgrade NOTE: replaced 'UNITY_INSTANCE_ID' with 'UNITY_VERTEX_INPUT_INSTANCE_ID'
 
 Shader "Custom/Crystal" {
-	Properties {
-		_CrystalColor ("Crystal Color", COLOR) = (1, 1, 1, 1)
-		_SolidColor("Solid Color", COLOR) = (0, 0, 0, 1)
-		_Minimum ("Minimum", RANGE(0, 1)) = 1
-		_Falloff ("Falloff", FLOAT) = 20
-		_Zoom ("Perlin Zoom", FLOAT) = 10
-		[Toggle] _UseDiffuse ("Use Diffuse", INT) = 0
-		_Distance ("Light Distance", RANGE(1, 50)) = 1
-		_Kc ("Light Constant", RANGE(0.1, 5)) = 1
-		_Kl("Light Linear", RANGE(0, 5)) = 1
-		_Kq("Light Quadratic", RANGE(0, 5)) = 1
+	Properties{
+		_SolidColor("Solid Color", Color) = (1,1,1,1)
+		_CrystalColor("Crystal Color", Color) = (1,1,1,1)
+		_NoiseColor("Noise Color", Color) = (1,1,1,1)
+		_Zoom("Zoom", Float) = 1
+		_NoiseZoom("Noise Zoom", Float) = 0.5
+		_Blend("Blending", Range(0, 1)) = 0
+		_Glossiness("Smoothness", Range(0,1)) = 0.5
+		_Metallic("Metallic", Range(0,1)) = 0.0
+		_ZNormal("Z Normal", Range(0.1, 1)) = 0.5
 	}
 	SubShader {
-		Pass {
-			Tags {
-				"RenderType" = "TransparentCutout"
-				"LightMode" = "ForwardBase"
-			}
-			Cull Off
-			LOD 200
+		Tags{ "RenderType" = "Opaque" }
+		LOD 200
 
-			CGPROGRAM
-			#pragma target 3.0
-			#pragma vertex vert
-			#pragma fragment frag
+		CGPROGRAM
+		#pragma surface surf Standard fullforwardshadows
+		#pragma target 3.0
 
+		struct Input
+		{
+			float2 uv_MainTex;
+			float3 worldPos;
+			UNITY_VERTEX_INPUT_INSTANCE_ID
+		};
 
-			float4 permute(float4 x) { return fmod(((x*34.0) + 1.0)*x, 289.0); }
-			float4 taylorInvSqrt(float4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-			float3 fade(float3 t) { return t*t*t*(t*(t*6.0 - 15.0) + 10.0); }
-			float cnoise(float3 P)
-			{
-				float3 Pi0 = floor(P); // Integer part for indexing
-				float3 Pi1 = Pi0 + float3(1, 1, 1); // Integer part + 1
-				Pi0 = fmod(Pi0, 289.0);
-				Pi1 = fmod(Pi1, 289.0);
-				float3 Pf0 = frac(P); // fracional part for interpolation
-				float3 Pf1 = Pf0 - float3(1, 1, 1); // fracional part - 1.0
-				float4 ix = float4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
-				float4 iy = float4(Pi0.yy, Pi1.yy);
-				float4 iz0 = Pi0.zzzz;
-				float4 iz1 = Pi1.zzzz;
+		float4 _SolidColor;
+		float4 _CrystalColor;
+		float4 _NoiseColor;
 
-				float4 ixy = permute(permute(ix) + iy);
-				float4 ixy0 = permute(ixy + iz0);
-				float4 ixy1 = permute(ixy + iz1);
+		float _NoiseZoom;
+		float _Zoom;
 
-				float4 gx0 = ixy0 / 7.0;
-				float4 gy0 = frac(floor(gx0) / 7.0) - 0.5;
-				gx0 = frac(gx0);
-				float4 gz0 = float4(0.5, 0.5, 0.5, 0.5) - abs(gx0) - abs(gy0);
-				float4 sz0 = step(gz0, float4(0, 0, 0, 0));
-				gx0 -= sz0 * (step(0.0, gx0) - 0.5);
-				gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+		float _Glossiness;
+		float _Metallic;
 
-				float4 gx1 = ixy1 / 7.0;
-				float4 gy1 = frac(floor(gx1) / 7.0) - 0.5;
-				gx1 = frac(gx1);
-				float4 gz1 = float4(0.5, 0.5, 0.5, 0.5) - abs(gx1) - abs(gy1);
-				float4 sz1 = step(gz1, float4(0, 0, 0, 0));
-				gx1 -= sz1 * (step(0.0, gx1) - 0.5);
-				gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+		float _ZNormal;
 
-				float3 g000 = float3(gx0.x, gy0.x, gz0.x);
-				float3 g100 = float3(gx0.y, gy0.y, gz0.y);
-				float3 g010 = float3(gx0.z, gy0.z, gz0.z);
-				float3 g110 = float3(gx0.w, gy0.w, gz0.w);
-				float3 g001 = float3(gx1.x, gy1.x, gz1.x);
-				float3 g101 = float3(gx1.y, gy1.y, gz1.y);
-				float3 g011 = float3(gx1.z, gy1.z, gz1.z);
-				float3 g111 = float3(gx1.w, gy1.w, gz1.w);
+		UNITY_INSTANCING_CBUFFER_START(Cube)
+			UNITY_DEFINE_INSTANCED_PROP(float, _Blend)
+		UNITY_INSTANCING_CBUFFER_END
 
-				float4 norm0 = taylorInvSqrt(float4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
-				g000 *= norm0.x;
-				g010 *= norm0.y;
-				g100 *= norm0.z;
-				g110 *= norm0.w;
-				float4 norm1 = taylorInvSqrt(float4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
-				g001 *= norm1.x;
-				g011 *= norm1.y;
-				g101 *= norm1.z;
-				g111 *= norm1.w;
-
-				float n000 = dot(g000, Pf0);
-				float n100 = dot(g100, float3(Pf1.x, Pf0.yz));
-				float n010 = dot(g010, float3(Pf0.x, Pf1.y, Pf0.z));
-				float n110 = dot(g110, float3(Pf1.xy, Pf0.z));
-				float n001 = dot(g001, float3(Pf0.xy, Pf1.z));
-				float n101 = dot(g101, float3(Pf1.x, Pf0.y, Pf1.z));
-				float n011 = dot(g011, float3(Pf0.x, Pf1.yz));
-				float n111 = dot(g111, Pf1);
-
-				float3 fade_xyz = fade(Pf0);
-				float4 n_z = lerp(float4(n000, n100, n010, n110), float4(n001, n101, n011, n111), fade_xyz.z);
-				float2 n_yz = lerp(n_z.xy, n_z.zw, fade_xyz.y);
-				float n_xyz = lerp(n_yz.x, n_yz.y, fade_xyz.x);
-				return 1.1 * n_xyz + 0.5;
-			}
-
-			struct vIn
-			{
-				float4 vertex : POSITION;
-				float4 texcoord : TEXCOORD0;
-				float3 normal : NORMAL;
-			};
-
-			struct vOut
-			{
-				float4 position : SV_POSITION;
-				float4 texcoord : TEXCOORD0;
-				float4 worldpos : TEXCOORD1;
-				float4 diffusal : COLOR;
-			};
-
-			float4 _CrystalColor;
-			float4 _SolidColor;
-			float _Minimum;
-			float _Falloff;
-			float _Zoom;
-			bool _UseDiffuse;
-			float _Distance, _Kc, _Kl, _Kq;
-
-			uniform float4 _LightColor0;
-
-			vOut vert(vIn input)
-			{
-				vOut output;
-
-				float4x4 modelMatrix = unity_ObjectToWorld;
-				float4x4 modelMatrixInverse = unity_WorldToObject;
-
-				float3 normalDirection = normalize(
-					mul(float4(input.normal, 0.0), modelMatrixInverse).xyz);
-				float3 lightDirection;
-				float attenuation;
-
-				if (0.0 == _WorldSpaceLightPos0.w) // Directional
-				{
-					attenuation = 1.0;
-					lightDirection = normalize(_WorldSpaceLightPos0.xyz);
-				}
-				else // Other
-				{
-					float3 vertexToLightSource = _WorldSpaceLightPos0.xyz
-						- mul(modelMatrix, input.vertex).xyz;
-					float distance = length(vertexToLightSource);
-					distance = distance / _Distance;
-					attenuation = _Distance / (_Kc + distance * _Kl + distance * distance * _Kq);
-					lightDirection = normalize(vertexToLightSource);
-				}
-
-				float3 diffuseReflection =
-					attenuation * _LightColor0.rgb * max(0.0, dot(normalDirection, lightDirection));
-
-				output.diffusal = float4(diffuseReflection, 1.0);
-				output.texcoord = input.texcoord;
-				output.position = UnityObjectToClipPos(input.vertex);
-				output.worldpos = mul(unity_ObjectToWorld, input.vertex);
-				return output;
-			}
-
-			float4 frag(vOut input) : COLOR
-			{
-				bool useDiffuse = _UseDiffuse;
-				float4 color;
-				float4 crystal = _CrystalColor;
-				float4 solid = _SolidColor;
-				float minimum = _Minimum;
-				float falloff = _Falloff;
-				float zoom = _Zoom;
-
-				const float offset = 0.05;
-				float perlin = 0.0;
-/*
-				for (int X = -1; X <= 1; X++)
-				{
-					for (int Y = -1; Y <= 1; Y++)
-					{
-						for (int Z = -1; Z <= 1; Z++)
-						{
-							int where = abs(X) + abs(Y) + abs(Z);
-							int amount;
-							if (where == 3)
-								amount = -1;
-							else if (where == 2)
-								amount = -2;
-							else if (where == 1)
-								amount = -4;
-							else
-								amount = 8 * 1 + 12 * 2 + 6 * 4 + 1;
-							float3 p = input.worldpos.xyz * zoom;
-							p.x = p.x + X * offset;
-							p.y = p.y + Y * offset;
-							p.z = p.z + Z * offset;
-							perlin += cnoise(p) * amount;
-						}
-					}
-				}
-*/
-				perlin = cnoise(input.worldpos.xyz * zoom);
-
-				float fall = 1 + abs(perlin - minimum) * (falloff);
-
-				if (perlin > minimum)
-					color = (1 - perlin) * (2 / fall) * crystal;
-				else
-					color = solid;
-				if (useDiffuse)
-					return color * input.diffusal;
-				else
-					return color;
-			}
-
-			ENDCG
+		float noise3D(float3 p)
+		{
+			return frac(sin(dot(p, float3(12.9898, 78.233, 128.852))) * 43758.5453)*2.0 - 1.0;
 		}
-		Pass{
-			Tags{
-			"RenderType" = "TransparentCutout"
-			"LightMode" = "ForwardAdd"
+
+		float simplex3D(float3 p)
+		{
+
+			float f3 = 1.0 / 3.0;
+			float s = (p.x + p.y + p.z)*f3;
+			int i = int(floor(p.x + s));
+			int j = int(floor(p.y + s));
+			int k = int(floor(p.z + s));
+
+			float g3 = 1.0 / 6.0;
+			float t = float((i + j + k))*g3;
+			float x0 = float(i) - t;
+			float y0 = float(j) - t;
+			float z0 = float(k) - t;
+			x0 = p.x - x0;
+			y0 = p.y - y0;
+			z0 = p.z - z0;
+
+			int i1, j1, k1;
+			int i2, j2, k2;
+
+			if (x0 >= y0)
+			{
+				if (y0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0; } // X Y Z order
+				else if (x0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1; } // X Z Y order
+				else { i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1; }  // Z X Z order
+			}
+			else
+			{
+				if (y0<z0) { i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1; } // Z Y X order
+				else if (x0<z0) { i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1; } // Y Z X order
+				else { i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0; } // Y X Z order
+			}
+
+			float x1 = x0 - float(i1) + g3;
+			float y1 = y0 - float(j1) + g3;
+			float z1 = z0 - float(k1) + g3;
+			float x2 = x0 - float(i2) + 2.0*g3;
+			float y2 = y0 - float(j2) + 2.0*g3;
+			float z2 = z0 - float(k2) + 2.0*g3;
+			float x3 = x0 - 1.0 + 3.0*g3;
+			float y3 = y0 - 1.0 + 3.0*g3;
+			float z3 = z0 - 1.0 + 3.0*g3;
+
+			float3 ijk0 = float3(i, j, k);
+			float3 ijk1 = float3(i + i1, j + j1, k + k1);
+			float3 ijk2 = float3(i + i2, j + j2, k + k2);
+			float3 ijk3 = float3(i + 1, j + 1, k + 1);
+
+			float3 gr0 = normalize(float3(noise3D(ijk0), noise3D(ijk0*2.01), noise3D(ijk0*2.02)));
+			float3 gr1 = normalize(float3(noise3D(ijk1), noise3D(ijk1*2.01), noise3D(ijk1*2.02)));
+			float3 gr2 = normalize(float3(noise3D(ijk2), noise3D(ijk2*2.01), noise3D(ijk2*2.02)));
+			float3 gr3 = normalize(float3(noise3D(ijk3), noise3D(ijk3*2.01), noise3D(ijk3*2.02)));
+
+			float n0 = 0.0;
+			float n1 = 0.0;
+			float n2 = 0.0;
+			float n3 = 0.0;
+
+			float t0 = 0.5 - x0*x0 - y0*y0 - z0*z0;
+			if (t0 >= 0.0)
+			{
+				t0 *= t0;
+				n0 = t0 * t0 * dot(gr0, float3(x0, y0, z0));
+			}
+			float t1 = 0.5 - x1*x1 - y1*y1 - z1*z1;
+			if (t1 >= 0.0)
+			{
+				t1 *= t1;
+				n1 = t1 * t1 * dot(gr1, float3(x1, y1, z1));
+			}
+			float t2 = 0.5 - x2*x2 - y2*y2 - z2*z2;
+			if (t2 >= 0.0)
+			{
+				t2 *= t2;
+				n2 = t2 * t2 * dot(gr2, float3(x2, y2, z2));
+			}
+			float t3 = 0.5 - x3*x3 - y3*y3 - z3*z3;
+			if (t3 >= 0.0)
+			{
+				t3 *= t3;
+				n3 = t3 * t3 * dot(gr3, float3(x3, y3, z3));
+			}
+			return 96.0*(n0 + n1 + n2 + n3);
+
 		}
-			Cull Off
-			LOD 200
 
-			CGPROGRAM
-			#pragma target 3.0
-			#pragma vertex vert
-			#pragma fragment frag
-
-
-			float4 permute(float4 x) { return fmod(((x*34.0) + 1.0)*x, 289.0); }
-			float4 taylorInvSqrt(float4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-			float3 fade(float3 t) { return t*t*t*(t*(t*6.0 - 15.0) + 10.0); }
-			float cnoise(float3 P)
-			{
-				float3 Pi0 = floor(P); // Integer part for indexing
-				float3 Pi1 = Pi0 + float3(1, 1, 1); // Integer part + 1
-				Pi0 = fmod(Pi0, 289.0);
-				Pi1 = fmod(Pi1, 289.0);
-				float3 Pf0 = frac(P); // fracional part for interpolation
-				float3 Pf1 = Pf0 - float3(1, 1, 1); // fracional part - 1.0
-				float4 ix = float4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
-				float4 iy = float4(Pi0.yy, Pi1.yy);
-				float4 iz0 = Pi0.zzzz;
-				float4 iz1 = Pi1.zzzz;
-
-				float4 ixy = permute(permute(ix) + iy);
-				float4 ixy0 = permute(ixy + iz0);
-				float4 ixy1 = permute(ixy + iz1);
-
-				float4 gx0 = ixy0 / 7.0;
-				float4 gy0 = frac(floor(gx0) / 7.0) - 0.5;
-				gx0 = frac(gx0);
-				float4 gz0 = float4(0.5, 0.5, 0.5, 0.5) - abs(gx0) - abs(gy0);
-				float4 sz0 = step(gz0, float4(0, 0, 0, 0));
-				gx0 -= sz0 * (step(0.0, gx0) - 0.5);
-				gy0 -= sz0 * (step(0.0, gy0) - 0.5);
-
-				float4 gx1 = ixy1 / 7.0;
-				float4 gy1 = frac(floor(gx1) / 7.0) - 0.5;
-				gx1 = frac(gx1);
-				float4 gz1 = float4(0.5, 0.5, 0.5, 0.5) - abs(gx1) - abs(gy1);
-				float4 sz1 = step(gz1, float4(0, 0, 0, 0));
-				gx1 -= sz1 * (step(0.0, gx1) - 0.5);
-				gy1 -= sz1 * (step(0.0, gy1) - 0.5);
-
-				float3 g000 = float3(gx0.x, gy0.x, gz0.x);
-				float3 g100 = float3(gx0.y, gy0.y, gz0.y);
-				float3 g010 = float3(gx0.z, gy0.z, gz0.z);
-				float3 g110 = float3(gx0.w, gy0.w, gz0.w);
-				float3 g001 = float3(gx1.x, gy1.x, gz1.x);
-				float3 g101 = float3(gx1.y, gy1.y, gz1.y);
-				float3 g011 = float3(gx1.z, gy1.z, gz1.z);
-				float3 g111 = float3(gx1.w, gy1.w, gz1.w);
-
-				float4 norm0 = taylorInvSqrt(float4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
-				g000 *= norm0.x;
-				g010 *= norm0.y;
-				g100 *= norm0.z;
-				g110 *= norm0.w;
-				float4 norm1 = taylorInvSqrt(float4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
-				g001 *= norm1.x;
-				g011 *= norm1.y;
-				g101 *= norm1.z;
-				g111 *= norm1.w;
-
-				float n000 = dot(g000, Pf0);
-				float n100 = dot(g100, float3(Pf1.x, Pf0.yz));
-				float n010 = dot(g010, float3(Pf0.x, Pf1.y, Pf0.z));
-				float n110 = dot(g110, float3(Pf1.xy, Pf0.z));
-				float n001 = dot(g001, float3(Pf0.xy, Pf1.z));
-				float n101 = dot(g101, float3(Pf1.x, Pf0.y, Pf1.z));
-				float n011 = dot(g011, float3(Pf0.x, Pf1.yz));
-				float n111 = dot(g111, Pf1);
-
-				float3 fade_xyz = fade(Pf0);
-				float4 n_z = lerp(float4(n000, n100, n010, n110), float4(n001, n101, n011, n111), fade_xyz.z);
-				float2 n_yz = lerp(n_z.xy, n_z.zw, fade_xyz.y);
-				float n_xyz = lerp(n_yz.x, n_yz.y, fade_xyz.x);
-				return 1.1 * n_xyz + 0.5;
-			}
-
-			struct vIn
-			{
-				float4 vertex : POSITION;
-				float4 texcoord : TEXCOORD0;
-				float3 normal : NORMAL;
-			};
-
-			struct vOut
-			{
-				float4 position : SV_POSITION;
-				float4 texcoord : TEXCOORD0;
-				float4 worldpos : TEXCOORD1;
-				float4 diffusal : COLOR;
-			};
-
-			float4 _CrystalColor;
-			float4 _SolidColor;
-			float _Minimum;
-			float _Falloff;
-			float _Zoom;
-			bool _UseDiffuse;
-			float _Distance, _Kc, _Kl, _Kq;
-
-			uniform float4 _LightColor0;
-
-			vOut vert(vIn input)
-			{
-				vOut output;
-
-				float4x4 modelMatrix = unity_ObjectToWorld;
-				float4x4 modelMatrixInverse = unity_WorldToObject;
-
-				float3 normalDirection = normalize(
-					mul(float4(input.normal, 0.0), modelMatrixInverse).xyz);
-				float3 lightDirection;
-				float attenuation;
-
-				if (0.0 == _WorldSpaceLightPos0.w) // Directional
-				{
-					attenuation = 1.0;
-					lightDirection = normalize(_WorldSpaceLightPos0.xyz);
-				}
-				else // Other
-				{
-					float3 vertexToLightSource = _WorldSpaceLightPos0.xyz
-						- mul(modelMatrix, input.vertex).xyz;
-					float distance = length(vertexToLightSource);
-					distance = distance / _Distance;
-					attenuation = _Distance / (_Kc + distance * _Kl + distance * distance * _Kq);
-					lightDirection = normalize(vertexToLightSource);
-				}
-
-				float3 diffuseReflection =
-					attenuation * _LightColor0.rgb * max(0.0, dot(normalDirection, lightDirection));
-
-				output.diffusal = float4(diffuseReflection, 1.0);
-				output.texcoord = input.texcoord;
-				output.position = UnityObjectToClipPos(input.vertex);
-				output.worldpos = mul(unity_ObjectToWorld, input.vertex);
-				return output;
-			}
-
-			float4 frag(vOut input) : COLOR
-			{
-				bool useDiffuse = _UseDiffuse;
-				float4 color;
-				float4 crystal = _CrystalColor;
-				float4 solid = _SolidColor;
-				float minimum = _Minimum;
-				float falloff = _Falloff;
-				float zoom = _Zoom;
-
-				const float offset = 0.1;
-				float perlin = 0.0;
-/*
-				for (int X = -1; X <= 1; X++)
-				{
-					for (int Y = -1; Y <= 1; Y++)
-					{
-						for (int Z = -1; Z <= 1; Z++)
-						{
-							int where = abs(X) + abs(Y) + abs(Z);
-							int amount;
-							if (where == 3)
-								amount = -1;
-							else if (where == 2)
-								amount = -2;
-							else if (where == 1)
-								amount = -4;
-							else
-								amount = 8 * 1 + 12 * 2 + 6 * 4 + 1;
-							float3 p = input.worldpos.xyz * zoom;
-							p.x = p.x + X * offset;
-							p.y = p.y + Y * offset;
-							p.z = p.z + Z * offset;
-							perlin += cnoise(p) * amount;
-						}
-					}
-				}*/
-
-				perlin = cnoise(input.worldpos.xyz * zoom);
-
-				float fall = 1 + abs(perlin - minimum) * (falloff);
-
-				if (perlin > minimum)
-					color = (1 - perlin) * (2 / fall) * crystal;
-				else
-					color = solid;
-				if (useDiffuse)
-					return color * input.diffusal;
-				else
-					return color;
-			}
-			ENDCG
+		float fbm(float3 p)
+		{
+			float f;
+			f = 0.50000*simplex3D(p); p = p*2.01;
+			f += 0.25000*simplex3D(p); p = p*2.02;
+			f += 0.12500*simplex3D(p); p = p*2.03;
+			f += 0.06250*simplex3D(p); p = p*2.04;
+			f += 0.03125*simplex3D(p);
+			f = (f + 1.0) / 2.0;
+			return f;
 		}
+
+		void surf(Input input, inout SurfaceOutputStandard output)
+		{
+			UNITY_SETUP_INSTANCE_ID(input);
+			float value = fbm(_NoiseZoom * input.worldPos);
+			const float offset = 0.1;
+			float max = fbm(_Zoom * input.worldPos);
+			float blend = UNITY_ACCESS_INSTANCED_PROP(_Blend);
+			float4 color;
+
+			float blend2 = (value - blend) / (1 - blend + 2e-10);
+			blend2 = pow(blend2, 2e-2);
+
+			if (max <= blend)
+			{
+				color = lerp(_CrystalColor, _NoiseColor, value);
+				float valueX = fbm(_NoiseZoom * input.worldPos + float3(offset, 0, 0));
+				float valueY = fbm(_NoiseZoom * input.worldPos + float3(0, offset, 0));
+				float3 normal = float3(abs(value - valueX), abs(value - valueY), _ZNormal);
+				normal = normalize(normal);
+				output.Normal = normal;
+			}
+			else
+				color = lerp(_CrystalColor, _SolidColor, blend2);
+
+
+			
+			output.Albedo = color.rgb;
+			output.Alpha = 1;
+			
+			output.Smoothness = _Glossiness;
+			output.Metallic = _Metallic;
+		}
+		ENDCG
 	}
-	FallBack "Crystal"
+	FallBack "Diffuse"
 }

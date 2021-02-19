@@ -20,18 +20,27 @@ namespace UnityStandardAssets.Characters.FirstPerson
         private Quaternion m_CharacterTargetRot;
         private Quaternion m_CameraTargetRot;
         private bool m_cursorIsLocked = true;
+		private String PlayerPrefixe;
 
-        public void Init(Transform character, Transform camera)
+		public void Init(Transform character, Transform camera, String Prefixe)
         {
             m_CharacterTargetRot = character.localRotation;
             m_CameraTargetRot = camera.localRotation;
+			PlayerPrefixe = Prefixe;
         }
 
 
         public void LookRotation(Transform character, Transform camera)
         {
-            float yRot = CrossPlatformInputManager.GetAxis("Mouse X") * XSensitivity;
-            float xRot = CrossPlatformInputManager.GetAxis("Mouse Y") * YSensitivity;
+			float yRot;
+			float xRot;
+			if (PlayerPrefixe == "Single") {
+				yRot = Input.GetAxis("Mouse X") * XSensitivity;
+				xRot = Input.GetAxis("Mouse Y") * YSensitivity;	
+			} else {
+				yRot = Input.GetAxis(PlayerPrefixe + "Mouse X") * XSensitivity;
+				xRot = Input.GetAxis(PlayerPrefixe + "Mouse Y") * YSensitivity;
+			}
 
             m_CharacterTargetRot *= Quaternion.Euler (0f, yRot, 0f);
             m_CameraTargetRot *= Quaternion.Euler (-xRot, 0f, 0f);
